@@ -13,6 +13,11 @@
           "name": "api-server",
           "sidecar": true,
           "args": []
+        },
+        {
+          "name": "python",
+          "cmd": "python",
+          "args": true
         }
       ]
     }

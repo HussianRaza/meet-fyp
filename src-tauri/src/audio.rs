@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Result};
+use byteorder::{ByteOrder, LittleEndian};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
-use byteorder::{ByteOrder, LittleEndian};
-use std::io::Write;
 
 // Define the Writer type for thread safety
 pub type SharedWriter = Arc<Mutex<Box<dyn Write + Send>>>;
@@ -14,10 +14,18 @@ pub struct AudioPipeline {
     stream: cpal::Stream,
 }
 
+// SAFETY: access to the stream is guarded by Mutex in AppState,
+// and we don't access the stream handle from multiple threads concurrently
+// (cpal stream runs on its own thread).
+// This is required because cpal::Stream is !Send on macOS.
+unsafe impl Send for AudioPipeline {}
+unsafe impl Sync for AudioPipeline {}
+
 impl AudioPipeline {
     pub fn new(app: AppHandle, writer: SharedWriter) -> Result<Self> {
         let host = cpal::default_host();
-        let device = host.default_input_device()
+        let device = host
+            .default_input_device()
             .ok_or_else(|| anyhow!("No input device"))?;
 
         println!("Using Input: {}", device.name().unwrap_or_default());

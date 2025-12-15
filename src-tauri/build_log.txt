@@ -1,0 +1,459 @@
+    Checking ai-meeting v0.1.0 (/Users/hussain/Programming/meetingai-fyp/ai-meeting/src-tauri)
+error[E0412]: cannot find type `Child` in module `tauri_plugin_shell::process`
+  --> src/lib.rs:53:53
+   |
+53 |     struct ChildWriter(tauri_plugin_shell::process::Child);
+   |                                                     ^^^^^ not found in `tauri_plugin_shell::process`
+   |
+help: consider importing this struct
+   |
+ 1 + use std::process::Child;
+   |
+help: if you import `Child`, refer to it directly
+   |
+53 -     struct ChildWriter(tauri_plugin_shell::process::Child);
+53 +     struct ChildWriter(Child);
+   |
+
+error[E0277]: `*mut ()` cannot be sent between threads safely
+   --> src/lib.rs:20:12
+    |
+ 20 |     state: tauri::State<'_, AppState>,
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^ `*mut ()` cannot be sent between threads safely
+    |
+    = help: within `Option<AudioPipeline>`, the trait `Send` is not implemented for `*mut ()`
+note: required because it appears within the type `PhantomData<*mut ()>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/marker.rs:822:12
+    |
+822 | pub struct PhantomData<T: PointeeSized>;
+    |            ^^^^^^^^^^^
+note: required because it appears within the type `cpal::platform::NotSendSyncAcrossAllPlatforms`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:736:8
+    |
+736 | struct NotSendSyncAcrossAllPlatforms(std::marker::PhantomData<*mut ()>);
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Stream`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+    |
+611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `AudioPipeline`
+   --> src/audio.rs:11:12
+    |
+ 11 | pub struct AudioPipeline {
+    |            ^^^^^^^^^^^^^
+note: required because it appears within the type `Option<AudioPipeline>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+    |
+599 | pub enum Option<T> {
+    |          ^^^^^^
+    = note: required for `std::sync::Mutex<Option<AudioPipeline>>` to implement `Send`
+note: required because it appears within the type `AppState`
+   --> src/lib.rs:8:12
+    |
+  8 | pub struct AppState {
+    |            ^^^^^^^^
+note: required by a bound in `State`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.9.5/src/state.rs:21:25
+    |
+ 21 | pub struct State<'r, T: Send + Sync + 'static>(&'r T);
+    |                         ^^^^ required by this bound in `State`
+    = note: this error originates in the macro `impl_platform_host` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `(dyn FnMut() + 'static)` cannot be sent between threads safely
+   --> src/lib.rs:20:12
+    |
+ 20 |     state: tauri::State<'_, AppState>,
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^ `(dyn FnMut() + 'static)` cannot be sent between threads safely
+    |
+    = help: the trait `Send` is not implemented for `(dyn FnMut() + 'static)`
+    = note: required for `Unique<(dyn FnMut() + 'static)>` to implement `Send`
+note: required because it appears within the type `Box<(dyn FnMut() + 'static)>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:231:12
+    |
+231 | pub struct Box<
+    |            ^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/property_listener.rs:11:8
+    |
+ 11 | struct PropertyListenerCallbackWrapper(Box<dyn FnMut()>);
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: required for `Unique<cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper>` to implement `Send`
+note: required because it appears within the type `Box<cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:231:12
+    |
+231 | pub struct Box<
+    |            ^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::property_listener::AudioObjectPropertyListener`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/property_listener.rs:15:12
+    |
+ 15 | pub struct AudioObjectPropertyListener {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Option<cpal::host::coreaudio::macos::property_listener::AudioObjectPropertyListener>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+    |
+599 | pub enum Option<T> {
+    |          ^^^^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::StreamInner`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/mod.rs:433:8
+    |
+433 | struct StreamInner {
+    |        ^^^^^^^^^^^
+    = note: required for `std::sync::Mutex<cpal::host::coreaudio::macos::StreamInner>` to implement `Sync`
+    = note: 1 redundant requirement hidden
+    = note: required for `Arc<std::sync::Mutex<cpal::host::coreaudio::macos::StreamInner>>` to implement `Send`
+note: required because it appears within the type `CoreAudioStream`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/mod.rs:885:12
+    |
+885 | pub struct Stream {
+    |            ^^^^^^
+note: required because it appears within the type `StreamInner`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+    |
+611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Stream`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+    |
+611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `AudioPipeline`
+   --> src/audio.rs:11:12
+    |
+ 11 | pub struct AudioPipeline {
+    |            ^^^^^^^^^^^^^
+note: required because it appears within the type `Option<AudioPipeline>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+    |
+599 | pub enum Option<T> {
+    |          ^^^^^^
+    = note: required for `std::sync::Mutex<Option<AudioPipeline>>` to implement `Send`
+note: required because it appears within the type `AppState`
+   --> src/lib.rs:8:12
+    |
+  8 | pub struct AppState {
+    |            ^^^^^^^^
+note: required by a bound in `State`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.9.5/src/state.rs:21:25
+    |
+ 21 | pub struct State<'r, T: Send + Sync + 'static>(&'r T);
+    |                         ^^^^ required by this bound in `State`
+    = note: this error originates in the macro `impl_platform_host` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0609]: no field `audio` on type `State<'_, AppState>`
+  --> src/lib.rs:72:12
+   |
+72 |     *state.audio.lock().unwrap() = Some(pipeline);
+   |            ^^^^^ unknown field
+
+error[E0282]: type annotations needed
+  --> src/lib.rs:58:27
+   |
+58 |                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+   |                           ^                                                 - type must be known at this point
+   |
+help: consider giving this closure parameter an explicit type
+   |
+58 |                 .map_err(|e: /* Type */| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+   |                            ++++++++++++
+
+error[E0277]: `*mut ()` cannot be sent between threads safely
+    --> src/lib.rs:82:17
+     |
+  82 |           .manage(AppState {
+     |  __________------_^
+     | |          |
+     | |          required by a bound introduced by this call
+  83 | |             audio: Mutex::new(None),
+  84 | |         })
+     | |_________^ `*mut ()` cannot be sent between threads safely
+     |
+     = help: within `Option<AudioPipeline>`, the trait `Send` is not implemented for `*mut ()`
+note: required because it appears within the type `PhantomData<*mut ()>`
+    --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/marker.rs:822:12
+     |
+ 822 | pub struct PhantomData<T: PointeeSized>;
+     |            ^^^^^^^^^^^
+note: required because it appears within the type `cpal::platform::NotSendSyncAcrossAllPlatforms`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:736:8
+     |
+ 736 | struct NotSendSyncAcrossAllPlatforms(std::marker::PhantomData<*mut ()>);
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Stream`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+     |
+ 611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `AudioPipeline`
+    --> src/audio.rs:11:12
+     |
+  11 | pub struct AudioPipeline {
+     |            ^^^^^^^^^^^^^
+note: required because it appears within the type `Option<AudioPipeline>`
+    --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+     |
+ 599 | pub enum Option<T> {
+     |          ^^^^^^
+     = note: required for `std::sync::Mutex<Option<AudioPipeline>>` to implement `Send`
+note: required because it appears within the type `AppState`
+    --> src/lib.rs:8:12
+     |
+   8 | pub struct AppState {
+     |            ^^^^^^^^
+note: required by a bound in `tauri::Builder::<R>::manage`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.9.5/src/app.rs:1798:8
+     |
+1796 |   pub fn manage<T>(self, state: T) -> Self
+     |          ------ required by a bound in this associated function
+1797 |   where
+1798 |     T: Send + Sync + 'static,
+     |        ^^^^ required by this bound in `Builder::<R>::manage`
+     = note: this error originates in the macro `impl_platform_host` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `(dyn FnMut() + 'static)` cannot be sent between threads safely
+    --> src/lib.rs:82:17
+     |
+  82 |           .manage(AppState {
+     |  __________------_^
+     | |          |
+     | |          required by a bound introduced by this call
+  83 | |             audio: Mutex::new(None),
+  84 | |         })
+     | |_________^ `(dyn FnMut() + 'static)` cannot be sent between threads safely
+     |
+     = help: the trait `Send` is not implemented for `(dyn FnMut() + 'static)`
+     = note: required for `Unique<(dyn FnMut() + 'static)>` to implement `Send`
+note: required because it appears within the type `Box<(dyn FnMut() + 'static)>`
+    --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:231:12
+     |
+ 231 | pub struct Box<
+     |            ^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/property_listener.rs:11:8
+     |
+  11 | struct PropertyListenerCallbackWrapper(Box<dyn FnMut()>);
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: required for `Unique<cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper>` to implement `Send`
+note: required because it appears within the type `Box<cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper>`
+    --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:231:12
+     |
+ 231 | pub struct Box<
+     |            ^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::property_listener::AudioObjectPropertyListener`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/property_listener.rs:15:12
+     |
+  15 | pub struct AudioObjectPropertyListener {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Option<cpal::host::coreaudio::macos::property_listener::AudioObjectPropertyListener>`
+    --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+     |
+ 599 | pub enum Option<T> {
+     |          ^^^^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::StreamInner`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/mod.rs:433:8
+     |
+ 433 | struct StreamInner {
+     |        ^^^^^^^^^^^
+     = note: required for `std::sync::Mutex<cpal::host::coreaudio::macos::StreamInner>` to implement `Sync`
+     = note: 1 redundant requirement hidden
+     = note: required for `Arc<std::sync::Mutex<cpal::host::coreaudio::macos::StreamInner>>` to implement `Send`
+note: required because it appears within the type `CoreAudioStream`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/mod.rs:885:12
+     |
+ 885 | pub struct Stream {
+     |            ^^^^^^
+note: required because it appears within the type `StreamInner`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+     |
+ 611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Stream`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+     |
+ 611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `AudioPipeline`
+    --> src/audio.rs:11:12
+     |
+  11 | pub struct AudioPipeline {
+     |            ^^^^^^^^^^^^^
+note: required because it appears within the type `Option<AudioPipeline>`
+    --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+     |
+ 599 | pub enum Option<T> {
+     |          ^^^^^^
+     = note: required for `std::sync::Mutex<Option<AudioPipeline>>` to implement `Send`
+note: required because it appears within the type `AppState`
+    --> src/lib.rs:8:12
+     |
+   8 | pub struct AppState {
+     |            ^^^^^^^^
+note: required by a bound in `tauri::Builder::<R>::manage`
+    --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.9.5/src/app.rs:1798:8
+     |
+1796 |   pub fn manage<T>(self, state: T) -> Self
+     |          ------ required by a bound in this associated function
+1797 |   where
+1798 |     T: Send + Sync + 'static,
+     |        ^^^^ required by this bound in `Builder::<R>::manage`
+     = note: this error originates in the macro `impl_platform_host` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use parentheses to call this trait object
+     |
+  84 |         }())
+     |          ++
+
+error[E0277]: `*mut ()` cannot be sent between threads safely
+   --> src/lib.rs:17:1
+    |
+ 17 | #[tauri::command]
+    | ^^^^^^^^^^^^^^^^^ `*mut ()` cannot be sent between threads safely
+...
+ 85 |         .invoke_handler(tauri::generate_handler![greet, start_audio_pipeline])
+    |                         ----------------------------------------------------- in this macro invocation
+    |
+    = help: within `Option<AudioPipeline>`, the trait `Send` is not implemented for `*mut ()`
+note: required because it appears within the type `PhantomData<*mut ()>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/marker.rs:822:12
+    |
+822 | pub struct PhantomData<T: PointeeSized>;
+    |            ^^^^^^^^^^^
+note: required because it appears within the type `cpal::platform::NotSendSyncAcrossAllPlatforms`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:736:8
+    |
+736 | struct NotSendSyncAcrossAllPlatforms(std::marker::PhantomData<*mut ()>);
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Stream`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+    |
+611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `AudioPipeline`
+   --> src/audio.rs:11:12
+    |
+ 11 | pub struct AudioPipeline {
+    |            ^^^^^^^^^^^^^
+note: required because it appears within the type `Option<AudioPipeline>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+    |
+599 | pub enum Option<T> {
+    |          ^^^^^^
+    = note: required for `std::sync::Mutex<Option<AudioPipeline>>` to implement `Send`
+note: required because it appears within the type `AppState`
+   --> src/lib.rs:8:12
+    |
+  8 | pub struct AppState {
+    |            ^^^^^^^^
+note: required by a bound in `State`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.9.5/src/state.rs:21:25
+    |
+ 21 | pub struct State<'r, T: Send + Sync + 'static>(&'r T);
+    |                         ^^^^ required by this bound in `State`
+    = note: this error originates in the macro `__cmd__start_audio_pipeline` which comes from the expansion of the macro `impl_platform_host` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `(dyn FnMut() + 'static)` cannot be sent between threads safely
+   --> src/lib.rs:17:1
+    |
+ 17 | #[tauri::command]
+    | ^^^^^^^^^^^^^^^^^ `(dyn FnMut() + 'static)` cannot be sent between threads safely
+...
+ 85 |         .invoke_handler(tauri::generate_handler![greet, start_audio_pipeline])
+    |                         ----------------------------------------------------- in this macro invocation
+    |
+    = help: the trait `Send` is not implemented for `(dyn FnMut() + 'static)`
+    = note: required for `Unique<(dyn FnMut() + 'static)>` to implement `Send`
+note: required because it appears within the type `Box<(dyn FnMut() + 'static)>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:231:12
+    |
+231 | pub struct Box<
+    |            ^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/property_listener.rs:11:8
+    |
+ 11 | struct PropertyListenerCallbackWrapper(Box<dyn FnMut()>);
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: required for `Unique<cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper>` to implement `Send`
+note: required because it appears within the type `Box<cpal::host::coreaudio::macos::property_listener::PropertyListenerCallbackWrapper>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:231:12
+    |
+231 | pub struct Box<
+    |            ^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::property_listener::AudioObjectPropertyListener`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/property_listener.rs:15:12
+    |
+ 15 | pub struct AudioObjectPropertyListener {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Option<cpal::host::coreaudio::macos::property_listener::AudioObjectPropertyListener>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+    |
+599 | pub enum Option<T> {
+    |          ^^^^^^
+note: required because it appears within the type `cpal::host::coreaudio::macos::StreamInner`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/mod.rs:433:8
+    |
+433 | struct StreamInner {
+    |        ^^^^^^^^^^^
+    = note: required for `std::sync::Mutex<cpal::host::coreaudio::macos::StreamInner>` to implement `Sync`
+    = note: 1 redundant requirement hidden
+    = note: required for `Arc<std::sync::Mutex<cpal::host::coreaudio::macos::StreamInner>>` to implement `Send`
+note: required because it appears within the type `CoreAudioStream`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/host/coreaudio/macos/mod.rs:885:12
+    |
+885 | pub struct Stream {
+    |            ^^^^^^
+note: required because it appears within the type `StreamInner`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+    |
+611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `Stream`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpal-0.15.3/src/platform/mod.rs:611:5
+    |
+611 |     impl_platform_host!(CoreAudio coreaudio "CoreAudio");
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `AudioPipeline`
+   --> src/audio.rs:11:12
+    |
+ 11 | pub struct AudioPipeline {
+    |            ^^^^^^^^^^^^^
+note: required because it appears within the type `Option<AudioPipeline>`
+   --> /Users/hussain/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/src/rust/library/core/src/option.rs:599:10
+    |
+599 | pub enum Option<T> {
+    |          ^^^^^^
+    = note: required for `std::sync::Mutex<Option<AudioPipeline>>` to implement `Send`
+note: required because it appears within the type `AppState`
+   --> src/lib.rs:8:12
+    |
+  8 | pub struct AppState {
+    |            ^^^^^^^^
+note: required by a bound in `State`
+   --> /Users/hussain/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.9.5/src/state.rs:21:25
+    |
+ 21 | pub struct State<'r, T: Send + Sync + 'static>(&'r T);
+    |                         ^^^^ required by this bound in `State`
+    = note: this error originates in the macro `__cmd__start_audio_pipeline` which comes from the expansion of the macro `impl_platform_host` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `State<'_, AppState>: CommandArg<'_, tauri_runtime_wry::Wry<EventLoopMessage>>` is not satisfied
+  --> src/lib.rs:17:1
+   |
+17 | #[tauri::command]
+   | ^^^^^^^^^^^^^^^^^ the trait `CommandArg<'_, tauri_runtime_wry::Wry<EventLoopMessage>>` is not implemented for `State<'_, AppState>`
+...
+85 |         .invoke_handler(tauri::generate_handler![greet, start_audio_pipeline])
+   |                         ----------------------------------------------------- in this macro invocation
+   |
+   = help: the trait `CommandArg<'_, R>` is implemented for `State<'_, T>`
+   = note: this error originates in the macro `__cmd__start_audio_pipeline` which comes from the expansion of the macro `tauri::generate_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused import: `tauri::Manager`
+ --> src/lib.rs:3:5
+  |
+3 | use tauri::Manager;
+  |     ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0277, E0282, E0412, E0609.
+For more information about an error, try `rustc --explain E0277`.
+warning: `ai-meeting` (lib) generated 1 warning
+error: could not compile `ai-meeting` (lib) due to 10 previous errors; 1 warning emitted
