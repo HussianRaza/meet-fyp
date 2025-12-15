@@ -5,6 +5,17 @@ import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import List
 import uvicorn
+import logging
+import os
+
+# Setup logging
+log_file = os.path.expanduser("~/.meetingai_sidecar.log")
+logging.basicConfig(
+    filename=log_file,
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -47,6 +58,7 @@ def audio_loop():
     Assumes 32-bit float audio from Rust.
     """
     print("Starting audio loop...", file=sys.stderr)
+    logger.info("Starting audio loop")
     chunk_size = 4096 # Bytes
     
     while True:
@@ -56,6 +68,7 @@ def audio_loop():
             # Better to use read(chunk_size) which blocks until EOF or some bytes available.
             data = sys.stdin.buffer.read(chunk_size)
             if not data:
+                logger.warning("Stdin closed")
                 break
             
             # Convert bytes to float32
@@ -65,20 +78,9 @@ def audio_loop():
             if audio_chunk.size > 0:
                 # Calculate RMS
                 rms = np.sqrt(np.mean(audio_chunk**2))
-                
+                # logger.debug(f"RMS: {rms}") # Too noisy
+
                 # Broadcast RMS
-                # We need to run the async broadcast from this thread.
-                # Since uvicorn runs in the main thread (or its own event loop), 
-                # we need a way to schedule execution on the main event loop or use a separate loop.
-                # HOWEVER, for simplicity in this sidecar pattern:
-                # We can just print to stdout (log) or try to use the manager. 
-                # But manager.broadcast is an async function.
-                
-                # Correction: uvicorn.run blocks. The background thread needs to communicate with the asyncio loop.
-                # We can use asyncio.run_coroutine_threadsafe if we have access to the loop.
-                
-                # Let's get the running loop if possible, or just print for now as 'broadcast' placeholder
-                # Real implementation:
                 try:
                     # This requires the loop to be running.
                     # We can store the loop in a global var when app starts.
@@ -88,18 +90,43 @@ def audio_loop():
                             globals()['loop']
                         )
                 except Exception as e:
+                    logger.error(f"Broadcast error: {e}")
                     print(f"Broadcast error: {e}", file=sys.stderr)
 
         except Exception as e:
+            logger.error(f"Error in audio loop: {e}")
             print(f"Error in audio loop: {e}", file=sys.stderr)
 
 # We need to capture the event loop to schedule tasks from the thread
 @app.on_event("startup")
 async def startup_event():
+    logger.info("FastAPI Startup")
     globals()['loop'] = asyncio.get_running_loop()
-    # Start the audio thread
-    t = threading.Thread(target=audio_loop, daemon=True)
-    t.start()
+    
+    # Check for Simulation Mode
+    # For now, default to True as per user task "Simulate the audio stream"
+    # We can check env var later if needed, e.g. os.getenv("AI_MEETING_SIMULATION", "true")
+    SIMULATION_MODE = True 
+
+    if SIMULATION_MODE:
+        logger.info("Starting in SIMULATION MODE (Reading test_audio.mp3)")
+        from transcription import TranscriptionService
+        
+        service = TranscriptionService()
+        
+        # Define callback wrapper
+        async def broadcast_wrapper(data):
+            await manager.broadcast(data)
+            
+        # Start the async simulation task
+        # We use asyncio.create_task because it's async code, unlike the blocking audio_loop
+        asyncio.create_task(service.run(broadcast_wrapper))
+        
+    else:
+        logger.info("Starting in LIVE MODE (Reading stdin)")
+        # Start the audio thread for stdin reading
+        t = threading.Thread(target=audio_loop, daemon=True)
+        t.start()
 
 if __name__ == "__main__":
     # Use a specific port, Tauri will expect this api-server to be running.

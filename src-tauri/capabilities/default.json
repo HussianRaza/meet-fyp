@@ -15,6 +15,11 @@
           "args": []
         },
         {
+          "name": "python3",
+          "cmd": "python3",
+          "args": true
+        },
+        {
           "name": "python",
           "cmd": "python",
           "args": true

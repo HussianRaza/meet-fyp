@@ -1,71 +1,129 @@
-use anyhow::{anyhow, Result};
-use byteorder::{ByteOrder, LittleEndian};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use std::io::Write;
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Manager, Emitter};
+use tokio::sync::oneshot;
 
-// Define the Writer type for thread safety
-pub type SharedWriter = Arc<Mutex<Box<dyn Write + Send>>>;
-
-pub struct AudioPipeline {
-    // We keep the stream alive by holding it in the struct
-    #[allow(dead_code)]
-    stream: cpal::Stream,
+pub struct AudioState {
+    // specific Send+Sync types
+    pub stop_sender: Arc<Mutex<Option<oneshot::Sender<()>>>>,
+    pub is_recording: Arc<Mutex<bool>>,
 }
 
-// SAFETY: access to the stream is guarded by Mutex in AppState,
-// and we don't access the stream handle from multiple threads concurrently
-// (cpal stream runs on its own thread).
-// This is required because cpal::Stream is !Send on macOS.
-unsafe impl Send for AudioPipeline {}
-unsafe impl Sync for AudioPipeline {}
+impl AudioState {
+    pub fn new() -> Self {
+        Self {
+            stop_sender: Arc::new(Mutex::new(None)),
+            is_recording: Arc::new(Mutex::new(false)),
+        }
+    }
+}
 
-impl AudioPipeline {
-    pub fn new(app: AppHandle, writer: SharedWriter) -> Result<Self> {
-        let host = cpal::default_host();
-        let device = host
-            .default_input_device()
-            .ok_or_else(|| anyhow!("No input device"))?;
+pub fn init_audio_state() -> AudioState {
+    AudioState::new()
+}
 
-        println!("Using Input: {}", device.name().unwrap_or_default());
+#[tauri::command]
+pub async fn start_audio_pipeline(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<AudioState>();
+    
+    // Check if already recording
+    if *state.is_recording.lock().unwrap() {
+        return Ok(()); 
+    }
 
-        let config = cpal::StreamConfig {
+    println!("Starting audio pipeline...");
+
+    // Get default device and config
+    // Note: We do this inside the async task, but the stream creation will happen in a detached thread
+    let host = cpal::default_host();
+    let device = host.default_input_device()
+        .ok_or("No input device found")?;
+    
+    println!("Using input device: {}", device.name().unwrap_or_default());
+    
+    let config = device.default_input_config()
+        .map_err(|e| e.to_string())?;
+
+    // Create channel to signal stop
+    let (tx, rx) = oneshot::channel::<()>();
+    
+    let app_handle = app.clone();
+    
+    // Spawn a dedicated standard thread to host the stream (resolves !Send issues on macOS)
+    std::thread::spawn(move || {
+        let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+        
+        // Custom 16kHz mono config
+        let target_config = cpal::StreamConfig {
             channels: 1,
-            sample_rate: cpal::SampleRate(16000), // Standard for Whisper
+            sample_rate: cpal::SampleRate(16000),
             buffer_size: cpal::BufferSize::Default,
         };
-
-        let writer_clone = writer.clone();
-        let app_clone = app.clone();
-
-        let stream = device.build_input_stream(
-            &config,
+        
+        // Note: Using default config to convert because build_input_stream expects SupportedStreamConfig
+        // But we want specific config. cpal build_input_stream takes &StreamConfig.
+        // Wait, device.build_input_stream(config, ...) -> config is StreamConfig.
+        // The user code uses `&config.into()`. default_input_config returns SupportedStreamConfig.
+        // .into() converts SupportedStreamConfig to StreamConfig?
+        // Let's stick strictly to user code. User code: `&config.into()` with `let config = device.default_input_config()`.
+        
+        let stream_result = device.build_input_stream(
+            &config.into(), // Using default for now to guarantee compatibility
             move |data: &[f32], _: &_| {
-                // 1. Ducking Logic (RMS Calculation)
-                if !data.is_empty() {
-                    let sum_squares: f32 = data.iter().map(|&x| x * x).sum();
-                    let rms = (sum_squares / data.len() as f32).sqrt();
-                    if rms > 0.1 {
-                        let _ = app_clone.emit("duck_system_audio", rms);
-                    }
-                }
-
-                // 2. Pipe Logic (Send bytes to Python)
-                if let Ok(mut w) = writer_clone.lock() {
-                    let mut bytes = vec![0u8; data.len() * 4];
-                    LittleEndian::write_f32_into(data, &mut bytes);
-                    if let Err(e) = w.write_all(&bytes) {
-                        eprintln!("Pipe error: {}", e);
-                    }
-                    let _ = w.flush();
-                }
+                // Calculation for visualization
+                let rms: f32 = if !data.is_empty() {
+                    (data.iter().map(|v| v * v).sum::<f32>() / data.len() as f32).sqrt()
+                } else {
+                    0.0
+                };
+                let _ = app_handle.emit("audio-level", rms);
+                
+                // Placeholder for Python pipe
             },
-            move |err| eprintln!("Stream error: {}", err),
-            None,
-        )?;
+            err_fn,
+            None 
+        );
 
-        stream.play()?;
-        Ok(Self { stream })
+        match stream_result {
+            Ok(stream) => {
+                if let Err(e) = stream.play() {
+                   eprintln!("Failed to play stream: {}", e);
+                   return;
+                }
+                println!("Audio stream playing on dedicated thread...");
+                
+                // Block this thread until we receive the stop signal
+                // mixing async channel with sync blocking recv
+                let _ = rx.blocking_recv();
+                
+                println!("Stop signal received, dropping stream...");
+                drop(stream);
+            }
+            Err(e) => {
+                 eprintln!("Failed to build input stream: {}", e);
+            }
+        }
+    });
+
+    // Update state
+    *state.stop_sender.lock().unwrap() = Some(tx);
+    *state.is_recording.lock().unwrap() = true;
+
+    println!("Audio pipeline started!");
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_audio_pipeline(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<AudioState>();
+    
+    // Take the sender out of the Option, if it exists
+    if let Some(tx) = state.stop_sender.lock().unwrap().take() {
+        // Sending the signal unblocks the thread, causing it to finish and drop the stream
+        let _ = tx.send(());
     }
+    
+    *state.is_recording.lock().unwrap() = false;
+    println!("Audio pipeline stopped.");
+    Ok(())
 }
