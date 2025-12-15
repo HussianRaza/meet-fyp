@@ -8,13 +8,15 @@ from faster_whisper import WhisperModel
 logger = logging.getLogger(__name__)
 
 class TranscriptionService:
-    def __init__(self, model_size="base.en", audio_file="../testfiles/test_audio.mp3", chunk_duration=2.0):
+    def __init__(self, model_size="tiny.en", audio_file="../testfiles/test_audio.mp3", chunk_duration=2.0, simulate_realtime=False, is_active_callback=None):
         self.model_size = model_size
         self.audio_file = audio_file
         self.chunk_duration = chunk_duration
         self.model = None
         self.audio_data = None
         self.sample_rate = 16000
+        self.simulate_realtime = simulate_realtime
+        self.is_active_callback = is_active_callback
 
     def load_resources(self):
         """Loads the Whisper model and the audio file."""
@@ -57,58 +59,91 @@ class TranscriptionService:
 
     async def run(self, broadcast_callback):
         """
-        Simulates streaming by processing the audio file in chunks.
+        Runs the transcription simulation.
         broadcast_callback: A coroutine function to send data to frontend.
         """
         if self.model is None or self.audio_data is None:
             self.load_resources()
 
+        if self.simulate_realtime:
+            logger.info("Starting REAL-TIME transcription simulation.")
+            await self._run_realtime(broadcast_callback)
+        else:
+            logger.info("Starting FAST FORWARD transcription simulation.")
+            await self._run_fast_forward(broadcast_callback)
+
+    async def _run_fast_forward(self, broadcast_callback):
+        """Fast Forwards the meeting by transcribing the entire file as fast as possible."""
+        # Transcribe the entire audio data at once
+        segments, info = await asyncio.to_thread(
+            self.model.transcribe, 
+            self.audio_data, 
+            beam_size=5,
+            language="en",
+            condition_on_previous_text=False,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500)
+        )
+
+        accumulated_text = ""
+        
+        for segment in segments:
+            accumulated_text += segment.text + " "
+            payload = {
+                 "type": "transcription",
+                 "text": accumulated_text.strip(),
+                 "partial": True 
+            }
+            has_clients = await broadcast_callback(payload)
+            if not has_clients:
+                logger.info("No clients connected. Pausing simulation...")
+                while not has_clients:
+                     await asyncio.sleep(1.0)
+                     # Try to send a dummy/ping or just check if we can resume?
+                     # Actually, the callback wrapper checks manager.active_connections.
+                     # But we need to invoke it to check.
+                     # Let's send a dummy partial update to check?
+                     # Or better, just wait 1s and retry the SAME payload.
+                     has_clients = await broadcast_callback(payload)
+                logger.info("Clients connected. Resuming simulation.")
+
+            await asyncio.sleep(0)
+
+        logger.info("Fast Forward transcription complete.")
+        while True:
+             await asyncio.sleep(1.0)
+
+    async def _run_realtime(self, broadcast_callback):
+        """Simulates streaming by processing the audio file in chunks."""
         chunk_samples = int(self.chunk_duration * self.sample_rate)
         total_samples = len(self.audio_data)
         current_sample = 0
         
-        logger.info(f"Starting transcription simulation. Total Duration: {total_samples/self.sample_rate:.2f}s")
+        logger.info(f"Total Duration: {total_samples/self.sample_rate:.2f}s")
         
         while True:
-            # Simulate "streaming" by taking a slice up to current point + chunk
-            # But wait! faster-whisper works best on the accumulated buffer OR a VAD-segmented chunk.
-            # To simulate "live" transcription where the text updates:
-            # We can transcribe the *entire* buffer available so far, which stabilizes previous text,
-            # OR we can transcribe just the new chunk (less context).
-            # For "typing itself out", transcribing the growing buffer is accurate but gets slower.
-            # Let's try transcribing the *new* segment only with previous context? 
-            # Actually, `faster-whisper` doesn't support streaming state easily in Python without low-level tweaks.
-            # Simple approach: Transcribe the sliding window of last 30s?
-            # Or just transcribe the growing buffer?
-            
-            # Let's simple-slice: Transcribe the accumulated buffer so far. 
-            # Limit to last 30s to keep it fast? No, let's try growing buffer first.
-            
-            start_window = max(0, current_sample - (16000 * 30)) # context window
+            start_window = 0 
             end_window = min(current_sample + chunk_samples, total_samples)
             
-            # If we reached end, loop back
             if current_sample >= total_samples:
                 logger.info("Looping audio...")
                 current_sample = 0
-                await asyncio.sleep(1.0) # Pause before restart
+                await asyncio.sleep(1.0)
                 continue
 
-            # In a real stream, we'd have a growing buffer. 
-            # Here we just reveal more of the file.
-            segment = self.audio_data[0:end_window] 
-            
-            # Optimization: Only transcribe the last 30 seconds to maintain speed?
-            # If we play a long file, transcribing 10 minutes every 2 seconds is too slow.
-            # Let's just transcribe the NEW chunk for now? No, context is lost.
-            # Compromise: Transcribe the last 30 seconds.
+            if self.is_active_callback:
+                if not self.is_active_callback():
+                     logger.info("Meeting inactive. Pausing simulation...")
+                     while not self.is_active_callback():
+                         await asyncio.sleep(0.5)
+                     logger.info("Meeting active. Resuming simulation.")
+
+            # Transcribe the last 30 seconds to maintain speed and context
             effective_start = max(0, end_window - (16000 * 30))
             audio_segment = self.audio_data[effective_start:end_window]
 
             start_time = asyncio.get_event_loop().time()
             
-            # Run blocking model inference in a thread
-            # Enable VAD filter to ignore silence
             segments, info = await asyncio.to_thread(
                 self.model.transcribe, 
                 audio_segment, 
@@ -119,13 +154,11 @@ class TranscriptionService:
                 vad_parameters=dict(min_silence_duration_ms=500)
             )
 
-            # Collect text
             text = " ".join([segment.text for segment in segments]).strip()
             
             process_time = asyncio.get_event_loop().time() - start_time
             logger.debug(f"Transcribed {len(audio_segment)/16000:.2f}s in {process_time:.2f}s: {text}")
 
-            # Filter known hallucinations
             hallucinations = ["You", "you", "You.", ".", "EXT.", "Music"]
             if text in hallucinations or not text:
                 logger.debug(f"Ignored hallucination/empty: '{text}'")
@@ -135,14 +168,12 @@ class TranscriptionService:
                     "text": text,
                     "partial": True 
                 }
+                # Broadcast returns False if no clients, we can also pause there, 
+                # but explicit state is better.
                 await broadcast_callback(payload)
 
-            # Advance time
             current_sample += chunk_samples
             
-            # Wait for real-time duration (minus processing time to be accurate-ish?)
-            # Just verify simple sleep vs drift.
-            wait_time = max(0, self.chunk_duration - process_time) # try to keep up
-            # If processing took longer than audio duration, don't sleep (live lag)
+            wait_time = max(0, self.chunk_duration - process_time)
             await asyncio.sleep(wait_time if wait_time > 0 else 0.1)
 
