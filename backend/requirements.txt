@@ -2,8 +2,8 @@ fastapi
 uvicorn
 numpy
 websockets
-# New dependencies
 faster-whisper
 llama-cpp-python
 huggingface_hub
-
+pydantic-settings
+python-dotenv
