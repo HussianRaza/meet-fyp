@@ -8,7 +8,7 @@ from faster_whisper import WhisperModel
 logger = logging.getLogger(__name__)
 
 class TranscriptionService:
-    def __init__(self, model_size="tiny.en", audio_file="testfiles/test_audio.mp3", chunk_duration=2.0):
+    def __init__(self, model_size="base.en", audio_file="testfiles/test_audio.mp3", chunk_duration=2.0):
         self.model_size = model_size
         self.audio_file = audio_file
         self.chunk_duration = chunk_duration
@@ -47,6 +47,13 @@ class TranscriptionService:
                 
                 self.audio_data = np.concatenate(audio_data)
                 
+                # Debug audio stats
+                logger.info(f"Audio Loaded. Shape: {self.audio_data.shape}, Min: {self.audio_data.min()}, Max: {self.audio_data.max()}, Mean: {self.audio_data.mean()}")
+                
+                # Check for silence
+                if np.max(np.abs(self.audio_data)) < 0.01:
+                    logger.warning("Audio seems to be silent!")
+
             except Exception as e:
                 logger.error(f"Failed to load audio file with av: {e}")
                 import traceback
@@ -104,6 +111,10 @@ class TranscriptionService:
             # Compromise: Transcribe the last 30 seconds.
             effective_start = max(0, end_window - (16000 * 30))
             audio_segment = self.audio_data[effective_start:end_window]
+
+            # Debug segment stats
+            max_amp = np.max(np.abs(audio_segment)) if audio_segment.size > 0 else 0
+            logger.debug(f"Segment stats: max_amp={max_amp:.4f}, size={audio_segment.size}")
 
             start_time = asyncio.get_event_loop().time()
             

@@ -38,7 +38,7 @@ export default function TranscriptionDisplay() {
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(event.data) as TranscriptionEvent;
           if (data.type === 'transcription') {
             // For now, we just replace/update. 
             // Often "partial" means current sentence is evolving.

@@ -7,6 +7,7 @@ pub struct AudioState {
     // specific Send+Sync types
     pub stop_sender: Arc<Mutex<Option<oneshot::Sender<()>>>>,
     pub is_recording: Arc<Mutex<bool>>,
+    pub python_child: Arc<Mutex<Option<std::process::Child>>>,
 }
 
 impl AudioState {
@@ -14,6 +15,7 @@ impl AudioState {
         Self {
             stop_sender: Arc::new(Mutex::new(None)),
             is_recording: Arc::new(Mutex::new(false)),
+            python_child: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -32,6 +34,41 @@ pub async fn start_audio_pipeline(app: AppHandle) -> Result<(), String> {
     }
 
     println!("Starting audio pipeline...");
+
+    // --- Start Python Sidecar ---
+    // Try to find the venv python
+    let mut python_bin = "python3".to_string();
+    
+    // Construct absolute path to venv without resolving symlinks (filesytem::canonicalize resolves symlinks which breaks venv)
+    if let Ok(cwd) = std::env::current_dir() {
+        let venv_bin = cwd.parent().unwrap_or(&cwd).join(".venv/bin/python3");
+        if venv_bin.exists() {
+            python_bin = venv_bin.to_string_lossy().to_string();
+        }
+    }
+    
+    println!("Spawning sidecar using: {}", python_bin);
+    
+    // Determine backend directory
+    let backend_dir = std::path::Path::new("../backend");
+    let mut cmd = std::process::Command::new(python_bin);
+    cmd.arg("main.py");
+    if backend_dir.exists() {
+         cmd.current_dir(backend_dir);
+    }
+    
+    match cmd.spawn() {
+        Ok(child) => {
+            println!("Sidecar spawned successfully.");
+            *state.python_child.lock().unwrap() = Some(child);
+        }
+        Err(e) => {
+            eprintln!("Failed to spawn sidecar: {}", e);
+            // We continue anyway? Or fail?
+            // For now continue, but UI will be offline ofc.
+        }
+    }
+    // ---------------------------
 
     // Get default device and config
     // Note: We do this inside the async task, but the stream creation will happen in a detached thread
@@ -121,6 +158,14 @@ pub async fn stop_audio_pipeline(app: AppHandle) -> Result<(), String> {
     if let Some(tx) = state.stop_sender.lock().unwrap().take() {
         // Sending the signal unblocks the thread, causing it to finish and drop the stream
         let _ = tx.send(());
+    }
+    
+    // Kill Sidecar
+    let mut child_guard = state.python_child.lock().unwrap();
+    if let Some(mut child) = child_guard.take() {
+        println!("Killing sidecar...");
+        let _ = child.kill();
+        let _ = child.wait(); // ensure it's gone
     }
     
     *state.is_recording.lock().unwrap() = false;

@@ -17,7 +17,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+# app = FastAPI() - Moved to bottom with lifespan
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("FastAPI Startup")
+    globals()['loop'] = asyncio.get_running_loop()
+    
+    # Check for Simulation Mode
+    # For now, default to True as per user task "Simulate the audio stream"
+    SIMULATION_MODE = True 
+
+    if SIMULATION_MODE:
+        logger.info("Starting in SIMULATION MODE (Reading test_audio.mp3)")
+        from transcription import TranscriptionService
+        
+        service = TranscriptionService()
+        
+        # Define callback wrapper
+        async def broadcast_wrapper(data):
+            await manager.broadcast(data)
+            
+        # Start the async simulation task
+        asyncio.create_task(service.run(broadcast_wrapper))
+        
+    else:
+        logger.info("Starting in LIVE MODE (Reading stdin)")
+        # Start the audio thread for stdin reading
+        t = threading.Thread(target=audio_loop, daemon=True)
+        t.start()
+        
+    yield
+    # Cleanup if needed
+
+app = FastAPI(lifespan=lifespan)
 
 class ConnectionManager:
     def __init__(self):
@@ -96,37 +131,6 @@ def audio_loop():
         except Exception as e:
             logger.error(f"Error in audio loop: {e}")
             print(f"Error in audio loop: {e}", file=sys.stderr)
-
-# We need to capture the event loop to schedule tasks from the thread
-@app.on_event("startup")
-async def startup_event():
-    logger.info("FastAPI Startup")
-    globals()['loop'] = asyncio.get_running_loop()
-    
-    # Check for Simulation Mode
-    # For now, default to True as per user task "Simulate the audio stream"
-    # We can check env var later if needed, e.g. os.getenv("AI_MEETING_SIMULATION", "true")
-    SIMULATION_MODE = True 
-
-    if SIMULATION_MODE:
-        logger.info("Starting in SIMULATION MODE (Reading test_audio.mp3)")
-        from transcription import TranscriptionService
-        
-        service = TranscriptionService()
-        
-        # Define callback wrapper
-        async def broadcast_wrapper(data):
-            await manager.broadcast(data)
-            
-        # Start the async simulation task
-        # We use asyncio.create_task because it's async code, unlike the blocking audio_loop
-        asyncio.create_task(service.run(broadcast_wrapper))
-        
-    else:
-        logger.info("Starting in LIVE MODE (Reading stdin)")
-        # Start the audio thread for stdin reading
-        t = threading.Thread(target=audio_loop, daemon=True)
-        t.start()
 
 if __name__ == "__main__":
     # Use a specific port, Tauri will expect this api-server to be running.
