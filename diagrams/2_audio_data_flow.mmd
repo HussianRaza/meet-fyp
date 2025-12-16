@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant Mic as Microphone
+    participant Rust as Rust Backend (cpal)
+    participant Python as Python Sidecar
+    participant Whisper as Whisper Model
+    participant UI as Frontend UI
+
+    Rect rgb(240, 240, 240)
+        Note right of Mic: Audio Capture Phase
+        Mic->>Rust: Raw Audio Signal (PCM)
+        Rust->>Rust: Buffer & Process
+        Rust->>Python: Pipe Audio (Standard Input)
+    end
+
+    Rect rgb(230, 240, 255)
+        Note right of Rust: Processing Phase
+        Python->>Python: Read Stdin Stream
+        Python->>Whisper: Send Audio Chunk
+        Whisper-->>Python: Return Transcription Segment
+    end
+
+    Rect rgb(220, 255, 220)
+        Note right of Python: Distribution Phase
+        Python->>UI: WebSocket Message (JSON)
+        UI->>UI: Update React State (setTranscription)
+        UI->>UI: Render Text in TranscriptRail
+    end

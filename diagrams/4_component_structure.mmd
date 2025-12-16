@@ -1,0 +1,21 @@
+graph TD
+    App[App.tsx]
+    Sidebar[Sidebar.tsx]
+    Header[MeetingHeader.tsx]
+    Main[Main Content Area]
+    RightRail[Right Rail]
+    Widget[AIWidget.tsx]
+
+    App --> Sidebar
+    App --> Header
+    App --> Main
+    App --> RightRail
+    App --> Widget
+
+    Main --> SummaryPanel[SummaryPanel.tsx]
+    RightRail --> TranscriptRail[TranscriptRail.tsx]
+    RightRail --> ChatInterface[ChatInterface.tsx]
+    
+    TranscriptRail --> TranscriptItem[TranscriptItem]
+    ChatInterface --> ChatInput[Chat Input]
+    ChatInterface --> MessageList[Message List]

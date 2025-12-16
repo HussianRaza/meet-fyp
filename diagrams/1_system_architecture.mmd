@@ -1,0 +1,32 @@
+graph TD
+    subgraph Frontend ["Tauri Frontend (Next.js)"]
+        UI["User Interface"]
+        WS_Client["WebSocket Client"]
+        API_Client["API Client"]
+        Components["Components: Chat, AudioMonitor, SummaryPanel"]
+    end
+
+    subgraph RustCore ["Rust Core (Tauri Main Process)"]
+        TauriCmd["Tauri Commands"]
+        AudioMod["Audio Module (cpal)"]
+        SidecarMgr["Sidecar Manager"]
+    end
+
+    subgraph PythonSidecar ["Python Sidecar (FastAPI)"]
+        FastAPI["FastAPI Server"]
+        WSEndpoint["WebSocket Endpoint /ws"]
+        MinutesEndpoint["Minutes Endpoint /generate-minutes"]
+        Whisper["Whisper API / Transcription Service"]
+        LLM["Local LLM (Summarization)"]
+    end
+
+    UI --> |Invoke| TauriCmd
+    TauriCmd --> |Manage| SidecarMgr
+    SidecarMgr --> |Spawn| PythonSidecar
+    AudioMod --> |Capture & Pipe| SidecarMgr
+    SidecarMgr --> |Stdin| PythonSidecar
+
+    WS_Client <--> |Real-time Text| WSEndpoint
+    API_Client --> |POST Transcript| MinutesEndpoint
+    MinutesEndpoint --> |Summarize| LLM
+    Whisper --> |Transcribed Text| WSEndpoint

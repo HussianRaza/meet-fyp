@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant User
+    participant App as App.tsx
+    participant WS as WebSocket
+    participant API as /generate-minutes
+    participant LLM as Local LLM Service
+
+    User->>App: Click 'End Meeting & Generate Minutes'
+    App->>WS: Close Connection (Stop Transcription)
+    App->>App: Set isGenerating = true
+    App->>API: POST /generate-minutes { transcript }
+    
+    activate API
+    API->>LLM: Prompt Context + Transcript
+    activate LLM
+    LLM-->>API: Generated Minutes (Markdown)
+    deactivate LLM
+    API-->>App: Return JSON { minutes/points }
+    deactivate API
+
+    App->>App: Set minutes state
+    App->>App: Update SummaryPanel
+    App->>User: Display Meeting Minutes
