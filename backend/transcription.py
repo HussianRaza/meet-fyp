@@ -114,66 +114,68 @@ class TranscriptionService:
              await asyncio.sleep(1.0)
 
     async def _run_realtime(self, broadcast_callback):
-        """Simulates streaming by processing the audio file in chunks."""
-        chunk_samples = int(self.chunk_duration * self.sample_rate)
-        total_samples = len(self.audio_data)
-        current_sample = 0
+        """
+        Simulates streaming by pre-transcribing the file and emitting segments 
+        at their corresponding timestamps. This ensures full history is preserved
+        without the complexity of sliding window deduplication.
+        """
+        logger.info("Transcribing full audio for real-time simulation...")
         
-        logger.info(f"Total Duration: {total_samples/self.sample_rate:.2f}s")
+        # Transcribe the entire file first (like fast-forward)
+        segments_generator, info = await asyncio.to_thread(
+            self.model.transcribe, 
+            self.audio_data, 
+            beam_size=5,
+            language="en",
+            condition_on_previous_text=False,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500)
+        )
         
-        while True:
-            start_window = 0 
-            end_window = min(current_sample + chunk_samples, total_samples)
-            
-            if current_sample >= total_samples:
-                logger.info("Looping audio...")
-                current_sample = 0
-                await asyncio.sleep(1.0)
-                continue
+        # Consume generator to get all segments
+        segments = list(segments_generator)
+        logger.info(f"Pre-transcription complete. Found {len(segments)} segments. Starting playback...")
 
+        accumulated_text = ""
+        start_time = asyncio.get_event_loop().time()
+        
+        for i, segment in enumerate(segments):
+            # Check if meeting is active (pause logic)
             if self.is_active_callback:
-                if not self.is_active_callback():
-                     logger.info("Meeting inactive. Pausing simulation...")
-                     while not self.is_active_callback():
-                         await asyncio.sleep(0.5)
-                     logger.info("Meeting active. Resuming simulation.")
+                 while not self.is_active_callback():
+                     await asyncio.sleep(0.5)
+                     # Reset start time so we don't jump ahead
+                     # This is tricky without tracking paused duration.
+                     # For simplicity in this demo, we just wait. 
+                     # A better impl would adjust start_time.
+                     start_time = asyncio.get_event_loop().time() - segment.start
 
-            # Transcribe the last 30 seconds to maintain speed and context
-            effective_start = max(0, end_window - (16000 * 30))
-            audio_segment = self.audio_data[effective_start:end_window]
-
-            start_time = asyncio.get_event_loop().time()
+            # Calculate when this segment should appear
+            # segment.end is in seconds
+            target_time = segment.end
             
-            segments, info = await asyncio.to_thread(
-                self.model.transcribe, 
-                audio_segment, 
-                beam_size=5,
-                language="en",
-                condition_on_previous_text=False,
-                vad_filter=True,
-                vad_parameters=dict(min_silence_duration_ms=500)
-            )
-
-            text = " ".join([segment.text for segment in segments]).strip()
+            # Current playback time
+            current_time = asyncio.get_event_loop().time() - start_time
             
-            process_time = asyncio.get_event_loop().time() - start_time
-            logger.debug(f"Transcribed {len(audio_segment)/16000:.2f}s in {process_time:.2f}s: {text}")
-
-            hallucinations = ["You", "you", "You.", ".", "EXT.", "Music"]
-            if text in hallucinations or not text:
-                logger.debug(f"Ignored hallucination/empty: '{text}'")
-            else:
-                payload = {
-                    "type": "transcription",
-                    "text": text,
-                    "partial": True 
-                }
-                # Broadcast returns False if no clients, we can also pause there, 
-                # but explicit state is better.
-                await broadcast_callback(payload)
-
-            current_sample += chunk_samples
+            wait_time = target_time - current_time
             
-            wait_time = max(0, self.chunk_duration - process_time)
-            await asyncio.sleep(wait_time if wait_time > 0 else 0.1)
+            if wait_time > 0:
+                logger.debug(f"Waiting {wait_time:.2f}s for segment {i}...")
+                await asyncio.sleep(wait_time)
+
+            # Update text
+            accumulated_text += segment.text + " "
+            
+            logger.debug(f"Emitting segment {i}: {segment.text}")
+            
+            payload = {
+                "type": "transcription",
+                "text": accumulated_text.strip(),
+                "partial": True 
+            }
+            await broadcast_callback(payload)
+
+        logger.info("Real-time simulation complete.")
+        while True:
+             await asyncio.sleep(1.0)
 
