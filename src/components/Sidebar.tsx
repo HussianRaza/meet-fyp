@@ -1,10 +1,14 @@
-import { useState } from 'react';
 
-export default function Sidebar() {
-  const [active, setActive] = useState('chatbot');
 
+export interface SidebarProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
+export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const navItems = [
-    { id: 'chatbot', icon: '🤖', label: 'Chatbot' },
+    { id: 'transcript', icon: '📝', label: 'Transcript' },
+    { id: 'chat', icon: '💬', label: 'Chat Assistant' },
   ];
 
   return (
@@ -17,10 +21,10 @@ export default function Sidebar() {
         {navItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => setActive(item.id)}
+            onClick={() => onTabChange(item.id)}
             className={`
               w-full aspect-square rounded-xl flex items-center justify-center text-xl transition-all duration-200
-              ${active === item.id 
+              ${activeTab === item.id 
                 ? 'bg-gray-800 text-indigo-400 shadow-inner' 
                 : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
               }

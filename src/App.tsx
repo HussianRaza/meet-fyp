@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import MeetingHeader from "./components/MeetingHeader";
 import SummaryPanel from "./components/SummaryPanel";
 import TranscriptRail from "./components/TranscriptRail";
+import ChatInterface from "./components/ChatInterface";
 import AIWidget from "./components/AIWidget";
 import "./App.css";
 
@@ -15,6 +16,7 @@ interface TranscriptionEvent {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState('transcript');
   const [transcription, setTranscription] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
   
@@ -128,7 +130,7 @@ function App() {
   return (
     <div className="flex h-screen bg-black text-foreground overflow-hidden font-sans">
       {/* 1. Global Sidebar */}
-      <Sidebar />
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* 2. Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-gray-950">
@@ -151,9 +153,13 @@ function App() {
                 </div>
             </main>
 
-            {/* Right Rail: Transcript */}
-            <aside className="hidden lg:block border-l border-gray-800 bg-gray-900">
-                <TranscriptRail transcription={transcription} isConnected={isConnected} />
+            {/* Right Rail: Transcript or Chat */}
+            <aside className="hidden lg:block border-l border-gray-800 bg-gray-900 w-96 xl:w-[450px]">
+                {activeTab === 'chat' ? (
+                    <ChatInterface />
+                ) : (
+                    <TranscriptRail transcription={transcription} isConnected={isConnected} />
+                )}
             </aside>
 
         </div>
